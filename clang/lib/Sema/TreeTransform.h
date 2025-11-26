@@ -9386,6 +9386,27 @@ StmtResult TreeTransform<Derived>::TransformCXXExpansionStmtPattern(
     Init = SR.get();
   }
 
+  // Collect lifetime-extended temporaries in case this ends up being a
+  // destructuring expansion statement (for other kinds of expansion statements,
+  // this should make no difference since we ignore 'LifetimeExtendTemps' for
+  // those).
+  ExprResult ExpansionInitializer;
+  SmallVector<MaterializeTemporaryExpr *, 8> LifetimeExtendTemps;
+  if (S->isDependent()) {
+    EnterExpressionEvaluationContext ExprEvalCtx(
+        SemaRef, SemaRef.currentEvaluationContext().Context);
+    SemaRef.currentEvaluationContext().InLifetimeExtendingContext = true;
+    SemaRef.currentEvaluationContext().RebuildDefaultArgOrDefaultInit = true;
+
+    ExpansionInitializer =
+        getDerived().TransformExpr(S->getExpansionInitializer());
+    if (ExpansionInitializer.isInvalid())
+      return StmtError();
+
+    LifetimeExtendTemps =
+        SemaRef.currentEvaluationContext().ForRangeLifetimeExtendTemps;
+  }
+
   CXXExpansionStmtPattern *NewPattern = nullptr;
   if (S->isEnumerating()) {
     StmtResult ExpansionVar =
@@ -9418,11 +9439,6 @@ StmtResult TreeTransform<Derived>::TransformCXXExpansionStmtPattern(
         Iter.getAs<DeclStmt>(), S->getLParenLoc(), S->getColonLoc(),
         S->getRParenLoc());
   } else if (S->isDependent()) {
-    ExprResult ExpansionInitializer =
-        getDerived().TransformExpr(S->getExpansionInitializer());
-    if (ExpansionInitializer.isInvalid())
-      return StmtError();
-
     StmtResult ExpansionVar =
         getDerived().TransformStmt(S->getExpansionVarStmt());
     if (ExpansionVar.isInvalid())
@@ -9431,15 +9447,19 @@ StmtResult TreeTransform<Derived>::TransformCXXExpansionStmtPattern(
     StmtResult Res = SemaRef.BuildNonEnumeratingCXXExpansionStmtPattern(
         NewESD, Init, ExpansionVar.getAs<DeclStmt>(),
         ExpansionInitializer.get(), S->getLParenLoc(), S->getColonLoc(),
-        S->getRParenLoc(),
-        /*LifetimeExtendTemps=*/{});
+        S->getRParenLoc(), LifetimeExtendTemps);
 
     if (Res.isInvalid())
       return StmtError();
 
     NewPattern = cast<CXXExpansionStmtPattern>(Res.get());
   } else {
-    llvm_unreachable("TODO");
+    // The only time we instantiate an expansion statement is if its expansion
+    // size is dependent (otherwise, we only instantiate the expansions and
+    // leave the underlying CXXExpansionStmtPattern as-is). Since destructuring
+    // expansion statements never have a dependent size, we should never get
+    // here.
+    llvm_unreachable("destructuring pattern should never be instantiated");
   }
 
   StmtResult Body = getDerived().TransformStmt(S->getBody());
@@ -9470,8 +9490,23 @@ StmtResult TreeTransform<Derived>::TransformCXXExpansionStmtInstantiation(
   SmallVector<Stmt *> SharedStmts;
   SmallVector<Stmt *> Instantiations;
 
-  if (TransformStmts(SharedStmts, S->getSharedStmts()))
-    return StmtError();
+  // Apply lifetime extension to the shared statements if this was a
+  // destructuring expansion statement.
+  {
+    EnterExpressionEvaluationContext ExprEvalCtx(
+        SemaRef, SemaRef.currentEvaluationContext().Context);
+    SemaRef.currentEvaluationContext().InLifetimeExtendingContext = true;
+    SemaRef.currentEvaluationContext().RebuildDefaultArgOrDefaultInit = true;
+    if (TransformStmts(SharedStmts, S->getSharedStmts()))
+      return StmtError();
+
+    if (S->shouldApplyLifetimeExtensionToSharedStmts()) {
+      auto *VD =
+          cast<VarDecl>(cast<DeclStmt>(SharedStmts.front())->getSingleDecl());
+      SemaRef.ApplyForRangeOrExpansionStatementLifetimeExtension(
+          VD, SemaRef.currentEvaluationContext().ForRangeLifetimeExtendTemps);
+    }
+  }
 
   if (TransformStmts(Instantiations, S->getInstantiations()))
     return StmtError();

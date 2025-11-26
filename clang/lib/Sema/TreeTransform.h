@@ -9372,16 +9372,13 @@ TreeTransform<Derived>::TransformCXXForRangeStmt(CXXForRangeStmt *S) {
 template <typename Derived>
 StmtResult TreeTransform<Derived>::TransformCXXExpansionStmtPattern(
     CXXExpansionStmtPattern *S) {
-  CXXExpansionStmtDecl *NewESD = nullptr;
-  Stmt *Init = nullptr;
-  DeclStmt *ExpansionVarStmt = nullptr;
   Decl *ESD =
       getDerived().TransformDecl(S->getDecl()->getLocation(), S->getDecl());
   if (!ESD || ESD->isInvalidDecl())
     return StmtError();
-  NewESD = cast<CXXExpansionStmtDecl>(ESD);
+  CXXExpansionStmtDecl *NewESD = cast<CXXExpansionStmtDecl>(ESD);
 
-  Init = S->getInit();
+  Stmt *Init = S->getInit();
   if (Init) {
     StmtResult SR = getDerived().TransformStmt(Init);
     if (SR.isInvalid())
@@ -9389,17 +9386,58 @@ StmtResult TreeTransform<Derived>::TransformCXXExpansionStmtPattern(
     Init = SR.get();
   }
 
-  StmtResult ExpansionVar =
-      getDerived().TransformStmt(S->getExpansionVarStmt());
-  if (ExpansionVar.isInvalid())
-    return StmtError();
-  ExpansionVarStmt = cast<DeclStmt>(ExpansionVar.get());
-
   CXXExpansionStmtPattern *NewPattern = nullptr;
   if (S->isEnumerating()) {
+    StmtResult ExpansionVar =
+        getDerived().TransformStmt(S->getExpansionVarStmt());
+    if (ExpansionVar.isInvalid())
+      return StmtError();
+
     NewPattern = CXXExpansionStmtPattern::CreateEnumerating(
-        SemaRef.Context, NewESD, Init, ExpansionVarStmt, S->getLParenLoc(),
-        S->getColonLoc(), S->getRParenLoc());
+        SemaRef.Context, NewESD, Init, ExpansionVar.getAs<DeclStmt>(),
+        S->getLParenLoc(), S->getColonLoc(), S->getRParenLoc());
+  } else if (S->isIterating()) {
+    StmtResult Range = getDerived().TransformStmt(S->getRangeVarStmt());
+    if (Range.isInvalid())
+      return StmtError();
+
+    StmtResult Begin = getDerived().TransformStmt(S->getBeginVarStmt());
+    StmtResult End = getDerived().TransformStmt(S->getEndVarStmt());
+    StmtResult Iter = getDerived().TransformStmt(S->getIterVarStmt());
+    if (Begin.isInvalid() || End.isInvalid() || Iter.isInvalid())
+      return StmtError();
+
+    StmtResult ExpansionVar =
+        getDerived().TransformStmt(S->getExpansionVarStmt());
+    if (ExpansionVar.isInvalid())
+      return StmtError();
+
+    NewPattern = CXXExpansionStmtPattern::CreateIterating(
+        SemaRef.Context, NewESD, Init, ExpansionVar.getAs<DeclStmt>(),
+        Range.getAs<DeclStmt>(), Begin.getAs<DeclStmt>(), End.getAs<DeclStmt>(),
+        Iter.getAs<DeclStmt>(), S->getLParenLoc(), S->getColonLoc(),
+        S->getRParenLoc());
+  } else if (S->isDependent()) {
+    ExprResult ExpansionInitializer =
+        getDerived().TransformExpr(S->getExpansionInitializer());
+    if (ExpansionInitializer.isInvalid())
+      return StmtError();
+
+    StmtResult ExpansionVar =
+        getDerived().TransformStmt(S->getExpansionVarStmt());
+    if (ExpansionVar.isInvalid())
+      return StmtError();
+
+    StmtResult Res = SemaRef.BuildNonEnumeratingCXXExpansionStmtPattern(
+        NewESD, Init, ExpansionVar.getAs<DeclStmt>(),
+        ExpansionInitializer.get(), S->getLParenLoc(), S->getColonLoc(),
+        S->getRParenLoc(),
+        /*LifetimeExtendTemps=*/{});
+
+    if (Res.isInvalid())
+      return StmtError();
+
+    NewPattern = cast<CXXExpansionStmtPattern>(Res.get());
   } else {
     llvm_unreachable("TODO");
   }

@@ -291,7 +291,6 @@ struct MissingFeatures {
   static bool instrumentation() { return false; }
   static bool intrinsicElementTypeSupport() { return false; }
   static bool intrinsics() { return false; }
-  static bool isMemcpyEquivalentSpecialMember() { return false; }
   static bool isTrivialCtorOrDtor() { return false; }
   static bool lambdaCaptures() { return false; }
   static bool loopInfoStack() { return false; }
@@ -319,6 +318,7 @@ struct MissingFeatures {
   static bool peepholeProtection() { return false; }
   static bool pgoUse() { return false; }
   static bool pointerAuthentication() { return false; }
+  static bool pointerFieldProtection() { return false; }
   static bool pointerOverflowSanitizer() { return false; }
   static bool preservedAccessIndexRegion() { return false; }
   static bool requiresCleanups() { return false; }

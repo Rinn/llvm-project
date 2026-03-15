@@ -35,17 +35,18 @@ struct Outer {
 // CIR:         %[[THIS:.*]] = cir.load %{{.+}} : !cir.ptr<!cir.ptr<!rec_Outer>>, !cir.ptr<!rec_Outer>
 // CIR:         %[[M_BASE:.*]] = cir.get_member %[[THIS]][0] {name = "m"} : !cir.ptr<!rec_Outer> -> !cir.ptr<!rec_Middle2Ebase>
 // CIR-NEXT:    %[[M_COMPLETE:.*]] = cir.cast bitcast %[[M_BASE]] : !cir.ptr<!rec_Middle2Ebase> -> !cir.ptr<!rec_Middle>
-// CIR:         cir.copy %{{.+}} to %[[M_COMPLETE]] : !cir.ptr<!rec_Middle>
+// CIR:         %[[DST:.*]] = cir.cast bitcast %[[M_COMPLETE]] : !cir.ptr<!rec_Middle> -> !cir.ptr<!void>
+// CIR-NEXT:    %[[SRC:.*]] = cir.cast bitcast %{{.+}} : !cir.ptr<!rec_Middle> -> !cir.ptr<!void>
+// CIR-NEXT:    %[[SIZE:.*]] = cir.const #cir.int<5> : !u64i
+// CIR-NEXT:    cir.libc.memcpy %[[SIZE]] bytes from %[[SRC]] to %[[DST]]
 // CIR:         %[[EXTRA:.*]] = cir.get_member %[[THIS]][1] {name = "extra"} : !cir.ptr<!rec_Outer> -> !cir.ptr<!s8i>
 
 // LLVM-LABEL: define {{.*}} void @_ZN5OuterC2ERK6Middlec(
 // LLVM:         %[[GEP:.*]] = getelementptr %struct.Outer, ptr %{{.+}}, i32 0, i32 0
-// LLVM:         call void @llvm.memcpy.p0.p0.i64(ptr %[[GEP]], ptr %{{.+}}, i64 8, i1 false)
+// LLVM:         call void @llvm.memcpy.p0.p0.i64(ptr %[[GEP]], ptr %{{.+}}, i64 5, i1 false)
 
 // OGCG-LABEL: define {{.*}} void @_ZN5OuterC2ERK6Middlec(
 // OGCG:         %[[GEP:.*]] = getelementptr inbounds nuw %struct.Outer, ptr %{{.+}}, i32 0, i32 0
-// TODO(CIR): OG emits i64 5 here via ConstructorMemcpyizer, which CIR
-// doesn't have yet. CIR copies the full 8-byte type instead.
 // OGCG:         call void @llvm.memcpy.p0.p0.i64(ptr {{.*}} %[[GEP]], ptr {{.*}} %{{.+}}, i64 5, i1 false)
 
 void test(const Middle &m) {

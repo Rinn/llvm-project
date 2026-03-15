@@ -1100,16 +1100,26 @@ void CIRGenFunction::emitAggregateCopy(LValue dest, LValue src, QualType ty,
 
   assert(!cir::MissingFeatures::aggValueSlotVolatile());
 
-  // NOTE(cir): original codegen would normally convert destPtr and srcPtr to
-  // i8* since memcpy operates on bytes. We don't need that in CIR because
-  // cir.copy will operate on any CIR pointer that points to a sized type.
-
   // Don't do any of the memmove_collectable tests if GC isn't set.
   if (cgm.getLangOpts().getGC() != LangOptions::NonGC)
     cgm.errorNYI("emitAggregateCopy: GC");
 
-  [[maybe_unused]] cir::CopyOp copyOp =
-      builder.createCopy(destPtr.getPointer(), srcPtr.getPointer(), isVolatile);
+  // If the data size (excluding tail padding) differs from the full type size,
+  // we can't use cir.copy (which always copies the full pointee type). Instead,
+  // emit cir.libc.memcpy with the precise byte count to avoid clobbering tail
+  // padding that may be occupied by other objects (e.g. [[no_unique_address]]).
+  CharUnits dataSize = typeInfo.Width;
+  if (mayOverlap && dataSize != getContext().getTypeSizeInChars(ty)) {
+    mlir::Location loc = srcPtr.getPointer().getLoc();
+    Address destVoid = destPtr.withElementType(builder, voidTy);
+    Address srcVoid = srcPtr.withElementType(builder, voidTy);
+    mlir::Value sizeVal =
+        builder.getConstInt(loc, sizeTy, dataSize.getQuantity());
+    builder.createMemCpy(loc, destVoid.getPointer(), srcVoid.getPointer(),
+                         sizeVal);
+  } else {
+    builder.createCopy(destPtr.getPointer(), srcPtr.getPointer(), isVolatile);
+  }
 
   assert(!cir::MissingFeatures::opTBAA());
 }

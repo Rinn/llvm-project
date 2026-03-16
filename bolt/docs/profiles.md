@@ -12,9 +12,9 @@ $ perf2bolt executable \
   -p perf.data
 # OR pre-aggregated requires `--pa` switch:
   -p preagg --pa
-# fdata is the default output format, OR YAML is emitted using `-w` flag:
+# fdata is the default output format, YAML is optionally emitted using `-w` flag:
   -o perf.fdata [-w perf.yaml]
-# the output format can be switched with `--profile-format`:
+# the output format for `-o` can be switched with `--profile-format`:
   -o perf.yaml --profile-format=yaml
 ```
 
@@ -36,7 +36,7 @@ perf record -j any,u -e cycles:u -o perf.data -- ./binary
   (Intel LBR, AMD LBRv2/BRS, ARM BRBE).
   Used by default with `perf2bolt` and `llvm-bolt -p perf.data`.
 - **Basic aggregation (`-ba`)**: Sample-based profile without branch stacks.
-  Lower quality but works on hardware/VMs without LBR support.
+  Lower quality but works on hardware/VMs without branch sampling support.
 - **Tracing (`--itrace`)**: Synthesizing branch stacks from trace profile (Intel PT, ARM ETM).
 Requires a value (e.g. `i10usl`), see
 [perf documentation](https://github.com/torvalds/linux/blob/35f5aa9ccc83f4a4171cdb6ba023e514e2b2ecff/tools/perf/Documentation/itrace.txt)

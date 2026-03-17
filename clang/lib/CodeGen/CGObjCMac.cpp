@@ -3935,8 +3935,8 @@ CGObjCCommonMac::GenerateDirectMethod(const ObjCMethodDecl *OMD,
   CodeGenTypes &Types = CGM.getTypes();
   llvm::FunctionType *MethodTy =
       Types.GetFunctionType(Types.arrangeObjCMethodDeclaration(OMD));
-  std::string Name = getSymbolNameForMethod(OMD, /*includeCategoryName*/ false,
-                                            CGM.isPreconditionThunkOptEnabled());
+  std::string Name = getSymbolNameForMethod(
+      OMD, /*includeCategoryName*/ false, CGM.isPreconditionThunkOptEnabled());
   std::string ThunkName = Name + "_thunk";
 
   // Replace OldFn with NewFn: transfer name, replace all uses, and erase.
@@ -3998,14 +3998,19 @@ CGObjCCommonMac::GenerateDirectMethod(const ObjCMethodDecl *OMD,
 void CodeGenFunction::StartObjCDirectPreconditionThunk(
     const ObjCMethodDecl *OMD, llvm::Function *Fn, const CGFunctionInfo &FI) {
   // Mark this as a thunk function to disable ARC parameter processing
-  // and other thunk-inappropriate behavior.
+  // and other thunk-inappropriate behavior. We don't need to retain
+  // parameters because we're going to immediately forward them.
+  //
+  // Skipping ARC parameter processing is correct as long as (1) we don't
+  // run any code that could invalidate the parameters between the start of
+  // the thunk and the call and (2) we don't use the parameters after the
+  // call. Both hold whether we tail-call or not. Class realization could in
+  // theory invalidate parameters, but we assume that doesn't happen in
+  // practice.
   CurFuncIsThunk = true;
 
   // Build argument list for StartFunction.
   // We must include all parameters to match the thunk's LLVM function type.
-  // The thunk uses musttail to forward all arguments directly, so ARC
-  // processing in the prolog is harmless - the parameters are forwarded
-  // as-is without local copies.
   FunctionArgList FunctionArgs;
   FunctionArgs.push_back(OMD->getSelfDecl());
   FunctionArgs.append(OMD->param_begin(), OMD->param_end());

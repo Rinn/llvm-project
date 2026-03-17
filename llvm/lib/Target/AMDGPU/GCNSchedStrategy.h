@@ -72,9 +72,8 @@ protected:
   /// invisible to scheduling heuristics. However, in certain scenarios (such as
   /// avoiding register spilling), it may be beneficial to consider scheduling
   /// these not-yet-ready instructions.
-  virtual bool tryPendingCandidate(SchedCandidate &Cand,
-                                   SchedCandidate &TryCand,
-                                   SchedBoundary *Zone) const;
+  bool tryPendingCandidate(SchedCandidate &Cand, SchedCandidate &TryCand,
+                           SchedBoundary *Zone) const;
 
   void printCandidateDecision(const SchedCandidate &Current,
                               const SchedCandidate &Preferred);

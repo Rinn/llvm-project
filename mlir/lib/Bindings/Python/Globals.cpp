@@ -104,11 +104,12 @@ void PyGlobals::registerAttributeBuilder(const std::string &attributeKind,
   if (found) {
     if (allow_existing)
       return;
-    if (!replace)
+    if (!replace) {
       throw std::runtime_error(
           nanobind::detail::join("Attribute builder for '", attributeKind,
                                  "' is already registered with func: ",
                                  nb::cast<std::string>(nb::str(found))));
+    }
   }
   found = std::move(pyFunc);
 }

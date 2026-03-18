@@ -897,11 +897,11 @@ populateBuilderLinesAttr(const Operator &op, ArrayRef<std::string> argNames,
     Dialect attrDialect = baseAttr.isSubClassOf("EnumAttr")
                               ? baseAttr.getDialect()
                               : Dialect(nullptr);
-    std::string attrBuilderKey =
-        attrDialect ? formatv("{0}.{1}", attrDialect.getName(),
-                              attribute->attr.getAttrDefName())
-                          .str()
-                    : attribute->attr.getAttrDefName().str();
+    std::string attrBuilderKey = attrDialect
+                                     ? formatv("{0}.{1}", attrDialect.getName(),
+                                               attribute->attr.getAttrDefName())
+                                           .str()
+                                     : attribute->attr.getAttrDefName().str();
 
     builderLines.push_back(formatv(
         attribute->attr.isOptional() || attribute->attr.hasDefaultValue()

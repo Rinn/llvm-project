@@ -1181,11 +1181,11 @@ LoopSequence::Depth LoopSequence::calculateDepths() const {
     return std::nullopt;
   }};
 
-   // The sequence length is calculated first, so we already know if this
-   // sequence is a nest or not.
-   if (!isNest()) {
+  // The sequence length is calculated first, so we already know if this
+  // sequence is a nest or not.
+  if (!isNest()) {
     return Depth{0, 0};
-   }
+  }
 
   // Get the length of the nested sequence. The invalidIC_ and opaqueIC_
   // members do not count canonical loop nests, but there can only be one

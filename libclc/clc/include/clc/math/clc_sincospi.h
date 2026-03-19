@@ -6,8 +6,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clc/math/clc_cospi.h"
-#include "clc/math/clc_sincospi.h"
+#ifndef __CLC_MATH_CLC_SINCOSPI_H__
+#define __CLC_MATH_CLC_SINCOSPI_H__
 
-#define __CLC_BODY "clc_cospi.inc"
+#define __CLC_BODY "clc/math/unary_decl_with_ptr.inc"
+#define __CLC_FUNCTION __clc_sincospi
+
 #include "clc/math/gentype.inc"
+
+#undef __CLC_FUNCTION
+
+#endif // __CLC_MATH_CLC_SINCOSPI_H__

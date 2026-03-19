@@ -686,6 +686,10 @@ bool isVOPD(unsigned Opc) {
   return AMDGPU::hasNamedOperand(Opc, AMDGPU::OpName::src0X);
 }
 
+bool isVOP3PDot2(unsigned Opc) {
+  return Opc == AMDGPU::V_DOT2_F32_F16 || Opc == AMDGPU::V_DOT2_F32_BF16;
+}
+
 bool isMAC(unsigned Opc) {
   return Opc == AMDGPU::V_MAC_F32_e64_gfx6_gfx7 ||
          Opc == AMDGPU::V_MAC_F32_e64_gfx10 ||

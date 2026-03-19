@@ -827,6 +827,19 @@ bool SIFoldOperandsImpl::tryAddToFoldList(
     return false;
   };
 
+  // For V_DOT2ACC pseudos, prefer folding literals into src0 (operand 2) for
+  // VOPD compatibility. If the literal would go into src1 (operand 4), commute
+  // src0 and src1 (including their modifiers) so the literal ends up in src0.
+  if (OpToFold.isImm() && OpNo == 4 &&
+      (Opc == AMDGPU::V_DOT2ACC_F32_F16_PSEUDO ||
+       Opc == AMDGPU::V_DOT2ACC_F32_BF16_PSEUDO)) {
+    int64_t SavedMod = MI->getOperand(1).getImm();
+    MI->getOperand(1).setImm(MI->getOperand(3).getImm());
+    MI->getOperand(3).setImm(SavedMod);
+    MI->getOperand(4).setReg(MI->getOperand(2).getReg());
+    OpNo = 2;
+  }
+
   bool IsLegal = OpToFold.isOperandLegal(*TII, *MI, OpNo);
   if (!IsLegal && OpToFold.isImm()) {
     if (std::optional<int64_t> ImmVal = OpToFold.getEffectiveImmVal())
@@ -1237,6 +1250,20 @@ void SIFoldOperandsImpl::foldOperand(
     }
 
     return;
+  }
+
+  // If a constant is folded into src2 of a V_DOT2ACC pseudo, convert it to
+  // V_DOT2_F32_F16/BF16. Folding the constant (ruling out VOPD) is preferable
+  // to leaving it unfolded to enable a potential VOPD pairing.
+  if (OpToFold.isImm() && UseOpIdx == 6) {
+    unsigned Opc = UseMI->getOpcode();
+    if (Opc == AMDGPU::V_DOT2ACC_F32_F16_PSEUDO ||
+        Opc == AMDGPU::V_DOT2ACC_F32_BF16_PSEUDO) {
+      UseMI->setDesc(TII->get(Opc == AMDGPU::V_DOT2ACC_F32_F16_PSEUDO
+                                  ? AMDGPU::V_DOT2_F32_F16
+                                  : AMDGPU::V_DOT2_F32_BF16));
+      UseMI->untieRegOperand(UseOpIdx);
+    }
   }
 
   if (tryToFoldACImm(OpToFold, UseMI, UseOpIdx, FoldList))

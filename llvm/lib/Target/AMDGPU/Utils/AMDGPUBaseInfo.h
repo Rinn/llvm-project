@@ -672,6 +672,9 @@ int getVOPDFull(unsigned OpX, unsigned OpY, unsigned EncodingFamily,
 LLVM_READONLY
 bool isVOPD(unsigned Opc);
 
+LLVM_READONLY
+bool isVOP3PDot2(unsigned Opc);
+
 LLVM_READNONE
 bool isMAC(unsigned Opc);
 
@@ -837,20 +840,24 @@ private:
   const ComponentKind Kind;
   const ComponentProps PrevComp;
   const unsigned VOPD3ModsNum;
-  const int BitOp3Idx; // Index of bitop3 operand or -1
+  const int BitOp3Idx;    // Index of bitop3 operand or -1
+  const bool IsVOP3PDot2; // True for V_DOT2_F32_F16 / V_DOT2_F32_BF16
 
 public:
   // Create layout for COMPONENT_X or SINGLE component.
-  ComponentLayout(ComponentKind Kind, unsigned VOPD3ModsNum, int BitOp3Idx)
-      : Kind(Kind), VOPD3ModsNum(VOPD3ModsNum), BitOp3Idx(BitOp3Idx) {
+  ComponentLayout(ComponentKind Kind, unsigned VOPD3ModsNum, int BitOp3Idx,
+                  bool IsVOP3PDot2 = false)
+      : Kind(Kind), VOPD3ModsNum(VOPD3ModsNum), BitOp3Idx(BitOp3Idx),
+        IsVOP3PDot2(IsVOP3PDot2) {
     assert(Kind == ComponentKind::SINGLE || Kind == ComponentKind::COMPONENT_X);
   }
 
   // Create layout for COMPONENT_Y which depends on COMPONENT_X layout.
   ComponentLayout(const ComponentProps &OpXProps, unsigned VOPD3ModsNum,
-                  int BitOp3Idx)
+                  int BitOp3Idx, bool IsVOP3PDot2 = false)
       : Kind(ComponentKind::COMPONENT_Y), PrevComp(OpXProps),
-        VOPD3ModsNum(VOPD3ModsNum), BitOp3Idx(BitOp3Idx) {}
+        VOPD3ModsNum(VOPD3ModsNum), BitOp3Idx(BitOp3Idx),
+        IsVOP3PDot2(IsVOP3PDot2) {}
 
 public:
   // Return the index of dst operand in MCInst operands.
@@ -862,6 +869,11 @@ public:
 
     if (Kind == SINGLE && CompSrcIdx == 2 && BitOp3Idx != -1)
       return BitOp3Idx;
+
+    if (IsVOP3PDot2) {
+      return SINGLE_MC_SRC_IDX[3][CompSrcIdx] + getPrevCompSrcNum() +
+             (Kind != SINGLE ? 1 : 0);
+    }
 
     if (VOPD3) {
       return SINGLE_MC_SRC_IDX[VOPD3ModsNum][CompSrcIdx] + getPrevCompSrcNum() +
@@ -903,14 +915,15 @@ public:
                 ComponentKind Kind = ComponentKind::SINGLE,
                 bool VOP3Layout = false)
       : ComponentProps(OpDesc, VOP3Layout),
-        ComponentLayout(Kind, getCompVOPD3ModsNum(), getBitOp3OperandIdx()) {}
+        ComponentLayout(Kind, getCompVOPD3ModsNum(), getBitOp3OperandIdx(),
+                        isVOP3PDot2(OpDesc.Opcode)) {}
 
   // Create ComponentInfo for COMPONENT_Y which depends on COMPONENT_X layout.
   ComponentInfo(const MCInstrDesc &OpDesc, const ComponentProps &OpXProps,
                 bool VOP3Layout = false)
       : ComponentProps(OpDesc, VOP3Layout),
-        ComponentLayout(OpXProps, getCompVOPD3ModsNum(),
-                        getBitOp3OperandIdx()) {}
+        ComponentLayout(OpXProps, getCompVOPD3ModsNum(), getBitOp3OperandIdx(),
+                        isVOP3PDot2(OpDesc.Opcode)) {}
 
   // Map component operand index to parsed operand index.
   // Return 0 if the specified operand does not exist.

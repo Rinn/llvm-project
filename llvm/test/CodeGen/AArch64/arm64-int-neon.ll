@@ -10,7 +10,6 @@
 ; CHECK-GI-NEXT:    warning: Instruction selection used fallback path for test_uqadd_s64
 ; CHECK-GI-NEXT:    warning: Instruction selection used fallback path for test_uqsub_s32
 ; CHECK-GI-NEXT:    warning: Instruction selection used fallback path for test_uqsub_s64
-; CHECK-GI-NEXT:    warning: Instruction selection used fallback path for test_sqdmulls_scalar
 ; CHECK-GI-NEXT:    warning: Instruction selection used fallback path for test_sqdmulh_scalar
 ; CHECK-GI-NEXT:    warning: Instruction selection used fallback path for test_sqabs_s32
 ; CHECK-GI-NEXT:    warning: Instruction selection used fallback path for test_sqabs_s64

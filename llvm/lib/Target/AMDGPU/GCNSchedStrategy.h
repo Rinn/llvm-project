@@ -107,6 +107,8 @@ protected:
 
   bool UseGCNTrackers = false;
 
+  std::optional<bool> GCNTrackersOverride;
+
 public:
   // schedule() have seen register pressure over the critical limits and had to
   // track register pressure for actual scheduling heuristics.
@@ -154,7 +156,9 @@ public:
 
   bool hasNextStage() const;
 
-  bool useGCNTrackers() const { return UseGCNTrackers; }
+  bool useGCNTrackers() const {
+    return GCNTrackersOverride.value_or(UseGCNTrackers);
+  }
 
   GCNSchedStageID getNextStage() const;
 

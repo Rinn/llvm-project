@@ -292,8 +292,7 @@ void OmpStructureChecker::CheckNestedConstruct(
 
   // Check if a loop-nest-associated construct has only one top-level loop
   // in it.
-  auto [needFirst, needCount, rangeReason]{
-      GetAffectedLoopRangeWithReason(beginSpec, version)};
+  auto needRange{GetAffectedLoopRangeWithReason(beginSpec, version)};
 
   if (std::optional<int64_t> numLoops{sequence.length()}) {
     if (*numLoops == 0) {
@@ -308,14 +307,14 @@ void OmpStructureChecker::CheckNestedConstruct(
             *numLoops);
       }
       if (assoc == llvm::omp::Association::LoopSeq) {
-        if (auto requiredCount{GetRequiredCount(needFirst, needCount)}) {
+        if (auto requiredCount{GetRequiredCount(needRange.value)}) {
           if (*requiredCount > 0 && *numLoops < *requiredCount) {
             auto &msg{context_.Say(beginSource,
                 "This construct requires a sequence of %" PRId64
                 " loops, but the loop sequence has a length of %" PRId64
                 ""_err_en_US,
                 *requiredCount, *numLoops)};
-            rangeReason.AttachTo(beginSource, msg);
+            needRange.reason.AttachTo(beginSource, msg);
           }
         }
       }
@@ -323,29 +322,29 @@ void OmpStructureChecker::CheckNestedConstruct(
   }
 
   // Check requirements on nest depth.
-  auto [needDepth, needPerfect, depthReason]{
+  auto [needDepth, needPerfect]{
       GetAffectedNestDepthWithReason(beginSpec, version)};
-  auto [haveSema, havePerf]{sequence.depth()};
+  auto &[haveSema, havePerf]{sequence.depth()};
 
   if (dir != llvm::omp::Directive::OMPD_fuse) {
-    auto haveDepth = needPerfect ? havePerf : haveSema;
+    auto &haveDepth = needPerfect ? havePerf : haveSema;
     // If the present depth is 0, it's likely that the construct doesn't
     // have any loops in it, which would be diagnosed above.
-    if (needDepth && haveDepth && *haveDepth > 0) {
-      if (*needDepth > *haveDepth) {
+    if (needDepth && haveDepth > 0) {
+      if (*needDepth.value > *haveDepth) {
         if (needPerfect) {
           auto &msg{context_.Say(beginSource,
               "This construct requires a perfect nest of depth %" PRId64
               ", but the associated nest is a perfect nest of depth %" PRId64
               ""_err_en_US,
-              *needDepth, *haveDepth)};
-          depthReason.AttachTo(beginSource, msg);
+              *needDepth.value, *haveDepth)};
+          needDepth.reason.AttachTo(beginSource, msg);
         } else {
           auto &msg{context_.Say(beginSource,
               "This construct requires a nest of depth %" PRId64
               ", but the associated nest has a depth of %" PRId64 ""_err_en_US,
-              *needDepth, *haveDepth)};
-          depthReason.AttachTo(beginSource, msg);
+              *needDepth.value, *haveDepth)};
+          needDepth.reason.AttachTo(beginSource, msg);
         }
       }
     }
